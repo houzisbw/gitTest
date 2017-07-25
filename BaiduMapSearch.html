@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=oiu5kqXt7U3ljISAeX8UZZXlgOHIaZac">
+        //防止上面的ak失效请换为你的ak,网址http://lbsyun.baidu.com/apiconsole/key
+    </script>
+    <title>房地产周边数据生成</title>
+    <style>
+        div #log {
+            margin:0 auto;
+            width:500px;
+            height:200px;
+        }
+        body {
+            text-align: center;
+            margin:0px;
+        }
+        input{
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            color: #000;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 1em;
+            height: 50px;
+            padding: 0 16px;
+            transition: background 0.3s ease-in-out;
+            width: 13%;
+            margin:30px 30px 0px 5px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #9ecaed;
+            box-shadow: 0 0 10px #9ecaed;
+        }
+        a  {
+            background-color: cadetblue;
+            text-decoration: none;
+            border-radius: 5px;
+            width:200px;
+            height:40px;
+            color:white;
+            display: inline-block;
+            font-size:150%;
+            padding:10px;
+        }
+        a:hover {
+            background-color: #9ecaed;
+        }
+        div.banner{
+            background-color: cadetblue;
+            height:50px;
+            width:100%;
+        }
+        p.bannerTitle{
+            text-align: left;
+            margin:0px;
+            padding:12px 0px 0px 20px;
+            color:white;
+            font-size: 130%;
+            font-family: "隶书";
+            width: 80%;
+        }
+
+        div.showData{
+
+            width:80%;
+            height:400px;
+            margin:80px auto;
+        }
+        div.statistics{
+            margin:100px auto;
+        }
+        #textshow{
+            width: 100%; /*宽度自适应父容器*/
+
+        }
+
+    </style>
+</head>
+<body>
+<div class="banner">
+    <p class="bannerTitle">房地产周边数据展示</p>
+
+</div>
+<br>
+<div id="log">
+
+    城市名字 <input type="text" id="cityName" value="成都市">
+    小区名字 <input type="text" id="estateName">
+    搜索内容 <input type="text" id="contentType" >
+    搜索半径(米) <input type="text" id="radius" placeholder="单位:米" value="1000">
+
+    <br><br><br><br>
+    <a id="test" onclick="clickDownload(this)"  href="#">搜索数据</a>
+    <a id="show" onclick="showData(this)" download="estate_info.csv" href="#">下载CSV</a>
+</div>
+<div class="showData">
+    <textarea id="textshow" cols="210" rows="30" readonly placeholder="内容显示区域" style="resize: none"></textarea>
+</div>
+<div class="statistics">
+    <p id="p_statistics">一共0条数据</p>
+</div>
+<script type="text/javascript">
+
+    //由于onSearchComplete函数会调用多次，有几页就几次，所以排序函数不能在每一次调用中使用，必须到最后使用
+    //此数组存储所有页的信息
+    var g_dis_info = new Array();
+    //下载,最终字符串,输出csv
+    var outputStr = "";
+    //目标小区经纬度
+    var desX = 0.0;
+    var desY = 0.0;
+    //计算2点距离的函数
+    function getDistance(x1,y1,x2,y2) {
+        return (x1-x2)*(x1-x2)*100000+(y1-y2)*(y1-y2)*100000;
+    }
+
+    //计算百度地图相关
+    function caculateMapData(content,estateName,cityName,radiusNumber,aLink){
+        //百度地图API搜索
+        var map = new BMap.Map('map');
+        var s = [];
+        var k=0;
+
+        var options = {
+
+            onSearchComplete: function(results){ //搜索函数执行需要一定时间，所以outputstr不能马上得到
+                if (local.getStatus() == BMAP_STATUS_SUCCESS){     // 判断状态是否正确 status:0 搜索成功
+                    for (var i = 0; i < results.getCurrentNumPois(); i++){
+                        k++;
+                        //如果phoneNumber为undefined，则输出'无'
+                        var phoneStr = "";
+                        if(results.getPoi(i).phoneNumber == undefined){
+                            phoneStr = '无';
+                        }
+                        else{
+                            phoneStr = results.getPoi(i).phoneNumber;
+                        }
+                        var info = results.getPoi(i).title + ", "+ results.getPoi(i).address+ ", "+ phoneStr+"\n";
+                        //计算每个poi和目标小区的距离
+                        var eachDistance = getDistance(desX,desY,results.getPoi(i).point.lng,results.getPoi(i).point.lat);
+                        //建立映射
+                        g_dis_info[info] = eachDistance;
+                        //拼接最终字符串
+                        outputStr += (k)+","+results.getPoi(i).title + ", "+ results.getPoi(i).address+ ", "+ results.getPoi(i).phoneNumber+"\n";
+                    }
+
+                    //到达最后一页,此时数据才写入完成，才能排序输出
+                    if(results.getPageIndex() == results.getNumPages()-1){
+                        //排序
+                        var sdic = Object.keys(g_dis_info).sort(function(a,b){return g_dis_info[a] - g_dis_info[b]});
+                        //输出到前端textarea
+                        var cnt = 1;
+                        for(var i in sdic)
+                        {
+                            if(cnt==1){
+                                document.getElementById("textshow").value += "【最近】" + cnt.toString() + "," + sdic[i] ;
+                            }
+                            else{
+                                document.getElementById("textshow").value += cnt.toString() + "," + sdic[i];
+                            }
+                            cnt++;
+                        }
+                    }
+
+                }
+                else{
+                    alert("没有找到搜索结果，请重新查找!");
+                    aLink.href = "#";
+                    return;
+                }
+                // 判断是否到最后一页，如果是则不再搜索页面输出结果
+                if (results.getPageIndex() < results.getNumPages() - 1) {
+                    local.gotoPage(results.getPageIndex() + 1);
+                }
+
+                //数据总数
+                document.getElementById("p_statistics").innerHTML = "一共"+results.getNumPois().toString()+"条数据  "+'<font color="red">(数据已按照由近至远排序)</font>';
+            }
+        };
+        var options_destionation = {
+            onSearchComplete: function(results) {
+                if (local_des.getStatus() == BMAP_STATUS_SUCCESS){     // 判断状态是否正确
+                    desX = results.getPoi(0).point.lng;
+                    desY = results.getPoi(0).point.lat;
+                    //计算小区周边
+                    local = new BMap.LocalSearch(cityName, options); //待输入的搜索的范围,可换成其他城市
+                    local.setPageCapacity(50);//此处如果超过50就不行，似乎50是页面最大容量
+
+                    //注意:如果第二个参数为string，也就是小区名字的话，则半径参数不起作用
+                    local.searchNearby(content, new BMap.Point(desX,desY),radiusNumber);   //第一个参数:具体要搜索的内容 ，第二个参数:小区名字
+                }
+            }
+            };
+
+        var local = null;
+        //仅仅用search函数搜索目的小区，是为了获得小区坐标
+        var local_des = new BMap.LocalSearch(cityName, options_destionation); //待输入的搜索的范围,可换成其他城市
+        local_des.setPageCapacity(100);
+        local_des.search(estateName);
+        return outputStr;
+    }
+
+    function clickDownload(aLink) //数据展示
+    {
+        //清空textarea内容
+        document.getElementById("textshow").value = "";
+        //清空数组
+        g_dis_info = new Array();
+        //获取输入框内容
+        var estateName = document.getElementById("estateName").value;
+        var content = document.getElementById("contentType").value;
+        var cityName = document.getElementById("cityName").value;
+        var radius = document.getElementById("radius").value;
+        //异常处理:无输入情况
+        if(estateName == "" || content == "" ||cityName == "" || radius == ""){
+            alert("请输入完整数据！");
+            return;
+        }
+        //半径不为整数
+        if(isNaN(parseInt(radius,10))){
+            alert("请输入正确半径!");
+            return;
+        }
+        var radiusNumber = parseInt(radius,10);
+
+        //计算地图相关数据
+        caculateMapData(content,estateName,cityName,radiusNumber,aLink);
+
+
+    }
+
+    //下载csv
+    function showData(aLink){
+
+        var strToDownload = document.getElementById("textshow").value;
+        var downloadLink = document.getElementById("show");
+        if(strToDownload != ""){
+            if(downloadLink.getAttribute("download") == null){
+                downloadLink.setAttribute("download","estate_info.csv");
+            }
+            var estateName = document.getElementById("estateName").value;
+            var content = document.getElementById("contentType").value;
+            var cityName = document.getElementById("cityName").value;
+            downloadLink.setAttribute("download",cityName+"-"+estateName+"-"+content+".csv");
+            strToDownload =  encodeURIComponent(strToDownload);
+            aLink.href = "data:text/csv;charset=utf-8,"+strToDownload;
+        }
+        else{
+
+            alert("请先点击搜索数据按钮！");
+            //删除下载属性
+            downloadLink.removeAttribute("download");
+            aLink.href = "#";
+
+        }
+
+    }
+
+
+</script>
+</body>
+</html>
