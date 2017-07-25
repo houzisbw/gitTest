@@ -5,5 +5,5 @@ A small programme to search nearby POI by using BaiduMap and support exporting E
 
 (2) locations have been sorted by distance
 
-![image](https://github.com/ButBueatiful/dotvim/raw/master/screenshots/vim-screenshot.jpg)
+![image](https://github.com/houzisbw/Baidu-Map-Search/blob/master/searchResults.jpg)
 
